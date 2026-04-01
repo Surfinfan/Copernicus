@@ -99,7 +99,7 @@ function evaluatePixel(p) {
     return {
         default: outColor,
         index: [indexVal], // En la herramienta estadística verás directamente el valor en µg/L
-        eobrowserStats: [mascara.agua, mascara.nube],
+        eobrowserStats: [indexVal, mascara.nube],
         dataMask: [p.dataMask]
     };
 }
