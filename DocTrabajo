@@ -1,4 +1,11 @@
 //VERSION=3
+
+var MNDWI_thr = 0.1;
+var NDWI_thr = 0.2;
+var SWI_thr = 0.03; 
+
+histogramIndex = 0;
+
 function setup() {
    return {
        input: ["B02", "B03", "B04", "B05", "B08", "B11", "SCL", "dataMask"], 
@@ -10,6 +17,20 @@ function setup() {
          { id: "dataMask", bands: 1 }
        ]
      };
+}
+
+
+////// FUNCTIONS
+//water body id for S2
+function wbiS2(g, nr, s1, vre1) {
+    //water surf.
+    let ws = 0;
+    try {
+        var mndwi = index(g, s1), ndwi = index(g, nr), swi = index(vre1, s1);
+        //DEFINE WB. || OR used which can cause false detection of WB. User can also change to && AND for less false detection of WB, but WB detection is probably then under-detected
+        if (mndwi > MNDWI_thr || ndwi > NDWI_thr || swi > SWI_thr) { ws = 1; }
+    } catch (err) { ws = 0; }
+    return ws;
 }
 
 // Optional filtering for clouds using the Sentinel-2A SCL band (values 1, 2, 7, 8, 9, 10, 11 are either clouds or snow)
@@ -31,28 +52,57 @@ function isCloud (scl) {
     }
  } 
 
-////// FUNCTIONS
-//water body id for S2
-function wbiS2(g, nr, s1, vre1) {
-    //water surf.
-    let ws = 0;
-    try {
-        var mndwi = index(g, s1), ndwi = index(g, nr), swi = index(vre1, s1);
-        //DEFINE WB. || OR used which can cause false detection of WB. User can also change to && AND for less false detection of WB, but WB detection is probably then under-detected
-        if (mndwi > MNDWI_thr || ndwi > NDWI_thr || swi > SWI_thr) { ws = 1; }
-    } catch (err) { ws = 0; }
-    return ws;
+ // calculate index value for statistics
+function calcInVal(histogramIndex, g, nr, s1, vre1) {
+    if (histogramIndex === 0) {
+        return index(g, s1);
+    } else if (histogramIndex === 1) {
+        return index(g, nr);
+    } else if (histogramIndex === 2) {
+        return index(vre1, s1)
+    } else {
+        // if this retured, there is error!
+        return 9999;
+    }
 }
 
 
+function MascaraAgua(p) {
+    // default value for vre1, if stays default that means that L8 is source
+    vre1 = 9999;
+
+    // for S2, already get the data from channel VRE1 as it does not exist for L8
+    vre1 = p["B05"];
+    // rgb
+    let b = p.B02, g = p.B03, r = p.B04;
+    //nir,swir1
+    let nr = p["B08"], s1 = p["B11"];
+
+    //water body index
+    w = wbiS2(g, nr, s1, vre1);
+
+    // calculation of the index value for statistics, depending on choosen index
+    let indexVal = p.dataMask === 1 ? calcInVal(histogramIndex, g, nr, s1, vre1) : NaN; // index without no-data values
+    
+    // Return  2 outputs: si es agua o no, y el valor del índice
+    return {
+        agua: [w],
+        index: [indexVal],
+    };
+
+
+
+
+
+
 function evaluatePixel(samples) {
-   let val = index(samples.B08, samples.B04); // NDVI calculation
+   //let val = index(samples.B08, samples.B04); // NDVI calculation
+   let let {val, index} = MascaraAgua(samples)
    let imgVals = null; 
-   const indexVal = samples.dataMask === 1 ? val : NaN; //NDVI index without no-data values
    const cloud = isCloud(samples.SCL) //calling in our cloud filtering functon as a cloud variable
 
    //Define the RGB NDVI visualization and write it into imgVals
-   if (val<-0.5) imgVals = [0.05,0.05,0.05,samples.dataMask];
+   if (val==1) imgVals = [0.05,0.05,0.05,samples.dataMask];
    else if (val<-0.2) imgVals = [0.75,0.75,0.75,samples.dataMask];
    else if (val<-0.1) imgVals = [0.86,0.86,0.86,samples.dataMask];
    else if (val<0) imgVals = [0.92,0.92,0.92,samples.dataMask];
