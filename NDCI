@@ -1,0 +1,100 @@
+//VERSION=3
+/*
+NDCI (Chlorophyll-a) over SWBM Water Mask
+- Water Mask based on SWBM by Mohor Gartner
+- NDCI by Sachidananda Mishra (2012)
+*/
+
+// UMBRALES DEL SWBM
+const MNDWI_thr = 0.1;
+const NDWI_thr = 0.2;
+const SWI_thr = 0.03;
+
+function setup() {
+    return {
+        input: ["B02", "B03", "B04", "B05", "B08", "B11", "SCL", "dataMask"],
+        output: [
+            { id: "default", bands: 4 }, 
+            { id: "index", bands: 1, sampleType: 'FLOAT32' },
+            { id: "eobrowserStats", bands: 2, sampleType: 'FLOAT32' }, 
+            { id: "dataMask", bands: 1 }
+        ]
+    };
+}
+
+// 1. FUNCIÓN MATEMÁTICA BÁSICA
+function calcIndex(b1, b2) {
+    return (b1 - b2) / (b1 + b2);
+}
+
+// 2. LA MÁSCARA DE AGUA (SWBM REFACCIONADO)
+function getWaterMask(p) {
+    let isCloud = false;
+    let isWater = 0;
+    
+    // Filtro de nubes SCL de Sentinel-2
+    if ([8, 9].includes(p.SCL)) {
+        isCloud = true;
+    }
+
+    // Si no es nube, calculamos índices de agua
+    if (!isCloud) {
+        let mndwi = calcIndex(p.B03, p.B11);
+        let ndwi = calcIndex(p.B03, p.B08);
+        let swi = calcIndex(p.B05, p.B11);
+
+        if (mndwi > MNDWI_thr || ndwi > NDWI_thr || swi > SWI_thr) {
+            isWater = 1;
+        }
+    }
+
+    return {
+        agua: isWater,
+        nube: isCloud ? 1 : 0
+    };
+}
+
+// 3. PALETA DE COLORES PARA EL NDCI
+// Valores típicos de NDCI van de -0.1 (agua muy clara) a 0.4 (bloom de algas severo)
+const ndciStops = [-0.1, 0.0, 0.1, 0.2, 0.3, 0.4];
+const ndciColors = [
+    [0.0, 0.0, 0.5], // Azul oscuro (Poca Clorofila)
+    [0.2, 0.6, 1.0], // Azul claro
+    [0.0, 0.8, 0.4], // Verde
+    [0.8, 1.0, 0.0], // Amarillo verdoso
+    [1.0, 0.6, 0.0], // Naranja
+    [1.0, 0.0, 0.0]  // Rojo (Alta Clorofila)
+];
+
+// 4. FUNCIÓN PRINCIPAL
+function evaluatePixel(p) {
+    // Obtenemos la máscara de este píxel
+    let mascara = getWaterMask(p);
+    
+    // Preparamos el color natural para la tierra (multiplicado por 2.5 para dar brillo)
+    let colorTierra = [p.B04 * 2.5, p.B03 * 2.5, p.B02 * 2.5, p.dataMask];
+    
+    // Variables de salida
+    let outColor = colorTierra;
+    let indexVal = NaN; // Por defecto es NaN (NoData) si no es agua
+
+    // Si el algoritmo de máscara dice que es agua:
+    if (mascara.agua === 1) {
+        // Calculamos el NDCI
+        indexVal = calcIndex(p.B05, p.B04);
+        
+        // Transformamos el valor matemático a un color visual
+        let colorNDCI = colorBlend(indexVal, ndciStops, ndciColors);
+        
+        // Añadimos el canal de transparencia (dataMask)
+        colorNDCI.push(p.dataMask);
+        outColor = colorNDCI;
+    }
+
+    return {
+        default: outColor,
+        index: [indexVal],
+        eobrowserStats: [mascara.agua, mascara.nube],
+        dataMask: [p.dataMask]
+    };
+}
