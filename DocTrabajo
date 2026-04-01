@@ -1,7 +1,7 @@
 //VERSION=3
 function setup() {
    return {
-       input: ["B04", "B08", "SCL","dataMask"], 
+       input: ["B02", "B03", "B04", "B05", "B08", "B11", "SCL", "dataMask"], 
        //The four outputs should be setup here in the setup function, and defined under the evaluatePixel function. 
        output: [
          { id: "default", bands: 4 }, 
@@ -11,12 +11,40 @@ function setup() {
        ]
      };
 }
+
 // Optional filtering for clouds using the Sentinel-2A SCL band (values 1, 2, 7, 8, 9, 10, 11 are either clouds or snow)
 function isCloud (scl) {
- if ([1, 2, 7, 8, 9, 10, 11].includes(scl))  {
-   return false;
+    /* SCL bands, user can add more bands, however it might filter scene too much or even filter out water area
+    1-SC_SATURATED_DEFECTIVE
+    2-SC_DARK_FEATURE_SHADOW
+    3-SC_CLOUD_SHADOW
+    7-SC_CLOUD_LOW_PROBA
+    8-SC_CLOUD_MEDIUM_PROBA
+    9-SC_CLOUD_HIGH_PROBA
+    10-SC_THIN_CIRRUS
+    11-SC_SNOW_ICE
+    */
+    if ([8, 9].includes(scl)) {
+        return true;
+    } else {
+        return false;
+    }
  } 
+
+////// FUNCTIONS
+//water body id for S2
+function wbiS2(g, nr, s1, vre1) {
+    //water surf.
+    let ws = 0;
+    try {
+        var mndwi = index(g, s1), ndwi = index(g, nr), swi = index(vre1, s1);
+        //DEFINE WB. || OR used which can cause false detection of WB. User can also change to && AND for less false detection of WB, but WB detection is probably then under-detected
+        if (mndwi > MNDWI_thr || ndwi > NDWI_thr || swi > SWI_thr) { ws = 1; }
+    } catch (err) { ws = 0; }
+    return ws;
 }
+
+
 function evaluatePixel(samples) {
    let val = index(samples.B08, samples.B04); // NDVI calculation
    let imgVals = null; 
