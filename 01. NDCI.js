@@ -24,7 +24,10 @@ function setup() {
 
 // 1. FUNCIÓN MATEMÁTICA BÁSICA
 function calcIndex(b1, b2) {
-    return (b1 - b2) / (b1 + b2);
+    // Protegemos el denominador para que nunca sea exactamente 0
+    let denominador = b1 + b2;
+    if (denominador === 0) denominador = 0.00001; 
+    return (b1 - b2) / denominador;
 }
 
 // 2. LA MÁSCARA DE AGUA (SWBM REFACCIONADO)
@@ -54,16 +57,17 @@ function getWaterMask(p) {
     };
 }
 
-// 3. PALETA DE COLORES PARA EL NDCI
-// Valores típicos de NDCI van de -0.1 (agua muy clara) a 0.4 (bloom de algas severo)
-const ndciStops = [-0.1, 0.0, 0.1, 0.2, 0.3, 0.4];
-const ndciColors = [
-    [0.0, 0.0, 0.5], // Azul oscuro (Poca Clorofila)
-    [0.2, 0.6, 1.0], // Azul claro
-    [0.0, 0.8, 0.4], // Verde
-    [0.8, 1.0, 0.0], // Amarillo verdoso
-    [1.0, 0.6, 0.0], // Naranja
-    [1.0, 0.0, 0.0]  // Rojo (Alta Clorofila)
+// 3. Valores típicos de Clorofila-a según el modelo para colorear
+// PALETA UNIFICADA DE CHL-A PARA TODOS LOS MODELOS (0 a 500+ µg/L)
+const chlaStops = [0, 15, 30, 50, 100, 250, 500]; 
+const chlaColors = [
+    [0.0, 0.0, 0.5], // 0: Azul oscuro (Agua clara / Oligotrófica)
+    [0.2, 0.6, 1.0], // 15: Azul claro
+    [0.0, 0.8, 0.4], // 30: Verde (Inicio de floración algal)
+    [0.8, 1.0, 0.0], // 50: Amarillo verdoso
+    [1.0, 0.6, 0.0], // 100: Naranja (Estado Eutrófico)
+    [1.0, 0.0, 0.0], // 250: Rojo (Estado Hipertrófico)
+    [0.6, 0.0, 0.8]  // 500: Morado (Bloom extremo / "Sopa verde" hiperconcentrada)
 ];
 
 // 4. FUNCIÓN PRINCIPAL
@@ -76,25 +80,28 @@ function evaluatePixel(p) {
     
     // Variables de salida
     let outColor = colorTierra;
+    let NDCI = NaN;
     let indexVal = NaN; // Por defecto es NaN (NoData) si no es agua
 
     // Si el algoritmo de máscara dice que es agua:
     if (mascara.agua === 1) {
         // Calculamos el NDCI
-        indexVal = calcIndex(p.B05, p.B04);
+        NDCI = calcIndex(p.B05, p.B04);
         
-        // Transformamos el valor matemático a un color visual
-        let colorNDCI = colorBlend(indexVal, ndciStops, ndciColors);
+        // Calculamos Chl-a con Mishra
+        indexVal = 14.039 + 86.115 * NDCI + 194.325 * Math.pow(NDCI, 2);
+
+        // APLICAMOS COLORBLEND CON LOS NUEVOS LÍMITES
+        let colorChla = colorBlend(indexVal, chlaStops, chlaColors);
         
-        // Añadimos el canal de transparencia (dataMask)
-        colorNDCI.push(p.dataMask);
-        outColor = colorNDCI;
+        colorChla.push(p.dataMask);
+        outColor = colorChla;
     }
 
     return {
         default: outColor,
         index: [indexVal],
-        eobrowserStats: [mascara.agua, mascara.nube],
+        eobrowserStats: [indexVal, mascara.nube], 
         dataMask: [p.dataMask]
     };
 }

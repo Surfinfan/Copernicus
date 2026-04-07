@@ -55,15 +55,16 @@ function getWaterMask(p) {
 }
 
 // 3. PALETA DE COLORES PARA CHL-A (µg/L)
-// Ajustada para concentraciones reales (0 a 500+ µg/L)
-const chlaStops = [0, 10, 50, 100, 250, 500];
+// PALETA UNIFICADA DE CHL-A PARA TODOS LOS MODELOS (0 a 500+ µg/L)
+const chlaStops = [0, 15, 30, 50, 100, 250, 500]; 
 const chlaColors = [
-    [0.0, 0.0, 0.5], // Azul oscuro (Poca Clorofila, <10 µg/L)
-    [0.2, 0.6, 1.0], // Azul claro
-    [0.0, 0.8, 0.4], // Verde
-    [0.8, 1.0, 0.0], // Amarillo verdoso
-    [1.0, 0.6, 0.0], // Naranja
-    [1.0, 0.0, 0.0]  // Rojo (Hipertrófico, >500 µg/L)
+    [0.0, 0.0, 0.5], // 0: Azul oscuro (Agua clara / Oligotrófica)
+    [0.2, 0.6, 1.0], // 15: Azul claro
+    [0.0, 0.8, 0.4], // 30: Verde (Inicio de floración algal)
+    [0.8, 1.0, 0.0], // 50: Amarillo verdoso
+    [1.0, 0.6, 0.0], // 100: Naranja (Estado Eutrófico)
+    [1.0, 0.0, 0.0], // 250: Rojo (Estado Hipertrófico)
+    [0.6, 0.0, 0.8]  // 500: Morado (Bloom extremo / "Sopa verde" hiperconcentrada)
 ];
 
 // 4. FUNCIÓN PRINCIPAL
