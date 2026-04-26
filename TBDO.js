@@ -3,7 +3,6 @@
 Chl-a (Modelo de 3 Bandas - TBDO) con Máscara de Agua SWBM
 - Máscara de Agua: SWBM (Mohor Gartner)
 - Chl-a: TBDO = R740 * (1/R665 - 1/R705)
-- Chl-a = 247.54 * TBDO + 10.643
 */
 
 // UMBRALES DEL SWBM
@@ -90,7 +89,7 @@ function evaluatePixel(p) {
         let tbdo = r740 * ((1 / r665) - (1 / r705));
         
         // ECUACIÓN 1: Cálculo final de Chl-a (µg/L)
-        indexVal = 247.54 * tbdo + 10.643;
+        indexVal = tbdo;
         
         // Transformamos el valor de µg/L a un color en el mapa
         let colorCHLA = colorBlend(indexVal, chlaStops, chlaColors);
